@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 иероглифов с озвучкой</title>
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .wrapper {
+            width: 100%;
+            max-width: 1400px;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 12px 20px;
+            background: #2c3e50;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.1em;
+        }
+
+        .controls button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 7px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            margin-left: 6px;
+            transition: background 0.2s;
+        }
+
+        .controls button:hover { background-color: #2980b9; }
+        .controls button.stop { background-color: #e74c3c; }
+        .controls button.stop:hover { background-color: #c0392b; }
+        .controls button.sound { background-color: #27ae60; }
+        .controls button.sound:hover { background-color: #1e8449; }
+        .controls button.sound.off { background-color: #7f8c8d; }
+
+        .scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #e0e0e0;
+            padding: 1px;
+        }
+
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+            gap: 1px;
+        }
+
+        .cell {
+            background-color: #ffffff;
+            padding: 6px 3px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .cell:hover { background-color: #f0f8ff; }
+        .cell.speaking { background-color: #fff3cd; }
+
+        .cell-id {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 9px;
+            color: #bdc3c7;
+        }
+
+        .hanzi-box {
+            width: 70px;
+            height: 70px;
+            margin-top: 5px;
+            cursor: pointer;
+            border: 1px dashed #eee;
+            border-radius: 4px;
+        }
+
+        .pinyin {
+            font-size: 12px;
+            color: #e74c3c;
+            font-weight: 700;
+            margin: 5px 0 1px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .translation {
+            font-size: 10px;
+            color: #555;
+            margin: 0;
+            line-height: 1.15;
+            word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .scroll-container::-webkit-scrollbar { width: 8px; }
+        .scroll-container::-webkit-scrollbar-track { background: #f1f1f1; }
+        .scroll-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        .scroll-container::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <div class="header">
+            <h1>📚 500 иероглифов (клик = анимация + звук)</h1>
+            <div class="controls">
+                <button id="play-all">▶ Анимация всех</button>
+                <button id="stop-all" class="stop">⏹ Сбросить</button>
+                <button id="toggle-sound" class="sound">🔊 Звук: ВКЛ</button>
+            </div>
+        </div>
+
+        <div class="scroll-container">
+            <div class="table-grid" id="grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // ----------------------------------------------------------------------
+        // БАЗА ДАННЫХ: 500 иероглифов
+        // ----------------------------------------------------------------------
+        const characters = [
+            // 1-10
+            { id: 1, char: "一", pinyin: "yī", translation: "один" },
+            { id: 2, char: "二", pinyin: "èr", translation: "два" },
+            { id: 3, char: "三", pinyin: "sān", translation: "три" },
+            { id: 4, char: "人", pinyin: "rén", translation: "человек" },
+            { id: 5, char: "个", pinyin: "gè", translation: "штука" },
+            { id: 6, char: "大", pinyin: "dà", translation: "большой" },
+            { id: 7, char: "山", pinyin: "shān", translation: "гора" },
+            { id: 8, char: "上", pinyin: "shàng", translation: "верх, на" },
+            { id: 9, char: "下", pinyin: "xià", translation: "низ, под" },
+            { id: 10, char: "小", pinyin: "xiǎo", translation: "маленький" },
+            // 11-20
+            { id: 11, char: "雨", pinyin: "yǔ", translation: "дождь" },
+            { id: 12, char: "天", pinyin: "tiān", translation: "небо, день" },
+            { id: 13, char: "车", pinyin: "chē", translation: "машина" },
+            { id: 14, char: "开", pinyin: "kāi", translation: "открывать" },
+            { id: 15, char: "火", pinyin: "huǒ", translation: "огонь" },
+            { id: 16, char: "门", pinyin: "mén", translation: "дверь" },
+            { id: 17, char: "口", pinyin: "kǒu", translation: "рот" },
+            { id: 18, char: "月", pinyin: "yuè", translation: "луна, месяц" },
+            { id: 19, char: "羊", pinyin: "yáng", translation: "овца" },
+            { id: 20, char: "只", pinyin: "zhǐ", translation: "только" },
+            // 21-30
+            { id: 21, char: "有", pinyin: "yǒu", translation: "иметь, есть" },
+            { id: 22, char: "牛", pinyin: "niú", translation: "корова" },
+            { id: 23, char: "水", pinyin: "shuǐ", translation: "вода" },
+            { id: 24, char: "中", pinyin: "zhōng", translation: "середина" },
+            { id: 25, char: "风", pinyin: "fēng", translation: "ветер" },
+            { id: 26, char: "头", pinyin: "tóu", translation: "голова" },
+            { id: 27, char: "田", pinyin: "tián", translation: "поле" },
+            { id: 28, char: "土", pinyin: "tǔ", translation: "земля" },
+            { id: 29, char: "里", pinyin: "lǐ", translation: "внутри" },
+            { id: 30, char: "在", pinyin: "zài", translation: "находиться" },
+            // 31-40
+            { id: 31, char: "日", pinyin: "rì", translation: "солнце, день" },
+            { id: 32, char: "白", pinyin: "bái", translation: "белый" },
+            { id: 33, char: "马", pinyin: "mǎ", translation: "лошадь" },
+            { id: 34, char: "手", pinyin: "shǒu", translation: "рука" },
+            { id: 35, char: "出", pinyin: "chū", translation: "выходить" },
+            { id: 36, char: "王", pinyin: "wáng", translation: "король" },
+            { id: 37, char: "子", pinyin: "zǐ", translation: "сын, ребёнок" },
+            { id: 38, char: "儿", pinyin: "ér", translation: "ребёнок" },
+            { id: 39, char: "女", pinyin: "nǚ", translation: "женщина" },
+            { id: 40, char: "刀", pinyin: "dāo", translation: "нож" },
+            // 41-50
+            { id: 41, char: "木", pinyin: "mù", translation: "дерево" },
+            { id: 42, char: "鸟", pinyin: "niǎo", translation: "птица" },
+            { id: 43, char: "伞", pinyin: "sǎn", translation: "зонт" },
+            { id: 44, char: "鱼", pinyin: "yú", translation: "рыба" },
+            { id: 45, char: "瓜", pinyin: "guā", translation: "дыня" },
+            { id: 46, char: "气", pinyin: "qì", translation: "воздух, газ" },
+            { id: 47, char: "飞", pinyin: "fēi", translation: "летать" },
+            { id: 48, char: "虫", pinyin: "chóng", translation: "насекомое" },
+            { id: 49, char: "米", pinyin: "mǐ", translation: "рис" },
+            { id: 50, char: "云", pinyin: "yún", translation: "облако" },
+            // 51-60
+            { id: 51, char: "电", pinyin: "diàn", translation: "электричество" },
+            { id: 52, char: "石", pinyin: "shí", translation: "камень" },
+            { id: 53, char: "了", pinyin: "le", translation: "частица" },
+            { id: 54, char: "来", pinyin: "lái", translation: "приходить" },
+            { id: 55, char: "玉", pinyin: "yù", translation: "нефрит" },
+            { id: 56, char: "去", pinyin: "qù", translation: "уходить" },
+            { id: 57, char: "回", pinyin: "huí", translation: "возвращаться" },
+            { id: 58, char: "多", pinyin: "duō", translation: "много" },
+            { id: 59, char: "少", pinyin: "shǎo", translation: "мало" },
+            { id: 60, char: "问", pinyin: "wèn", translation: "спрашивать" },
+            // 61-70
+            { id: 61, char: "早", pinyin: "zǎo", translation: "рано, утро" },
+            { id: 62, char: "巴", pinyin: "bā", translation: "очень (в сочет.)" },
+            { id: 63, char: "父", pinyin: "fù", translation: "отец" },
+            { id: 64, char: "工", pinyin: "gōng", translation: "работа, труд" },
+            { id: 65, char: "力", pinyin: "lì", translation: "сила" },
+            { id: 66, char: "不", pinyin: "bù", translation: "не, нет" },
+            { id: 67, char: "干", pinyin: "gàn", translation: "делать" },
+            { id: 68, char: "几", pinyin: "jǐ", translation: "сколько" },
+            { id: 69, char: "男", pinyin: "nán", translation: "мужчина" },
+            { id: 70, char: "坐", pinyin: "zuò", translation: "сидеть" },
+            // 71-80
+            { id: 71, char: "打", pinyin: "dǎ", translation: "бить, ударять" },
+            { id: 72, char: "四", pinyin: "sì", translation: "четыре" },
+            { id: 73, char: "五", pinyin: "wǔ", translation: "пять" },
+            { id: 74, char: "六", pinyin: "liù", translation: "шесть" },
+            { id: 75, char: "闪", pinyin: "shǎn", translation: "сверкать" },
+            { id: 76, char: "的", pinyin: "de", translation: "частица принадлежности" },
+            { id: 77, char: "花", pinyin: "huā", translation: "цветок" },
+            { id: 78, char: "朵", pinyin: "duǒ", translation: "счётное слово для цветов" },
+            { id: 79, char: "果", pinyin: "guǒ", translation: "фрукт, плод" },
+            { id: 80, char: "比", pinyin: "bǐ", translation: "сравнивать" },
+            // 81-90
+            { id: 81, char: "午", pinyin: "wǔ", translation: "полдень" },
+            { id: 82, char: "面", pinyin: "miàn", translation: "лицо, поверхность" },
+            { id: 83, char: "高", pinyin: "gāo", translation: "высокий" },
+            { id: 84, char: "包", pinyin: "bāo", translation: "сумка, пакет" },
+            { id: 85, char: "文", pinyin: "wén", translation: "язык, культура" },
+            { id: 86, char: "分", pinyin: "fēn", translation: "делить, минута" },
+            { id: 87, char: "平", pinyin: "píng", translation: "плоский, ровный" },
+            { id: 88, char: "我", pinyin: "wǒ", translation: "я" },
+            { id: 89, char: "连", pinyin: "lián", translation: "соединять; даже" },
+            { id: 90, char: "元", pinyin: "yuán", translation: "юань" },
+            // 91-100
+            { id: 91, char: "丁", pinyin: "dīng", translation: "гвоздь" },
+            { id: 92, char: "厂", pinyin: "chǎng", translation: "завод, фабрика" },
+            { id: 93, char: "目", pinyin: "mù", translation: "глаз" },
+            { id: 94, char: "见", pinyin: "jiàn", translation: "видеть" },
+            { id: 95, char: "兔", pinyin: "tù", translation: "кролик, заяц" },
+            { id: 96, char: "禾", pinyin: "hé", translation: "хлебный злак" },
+            { id: 97, char: "是", pinyin: "shì", translation: "быть, являться" },
+            { id: 98, char: "把", pinyin: "bǎ", translation: "держать; предлог" },
+            { id: 99, char: "笑", pinyin: "xiào", translation: "смеяться" },
+            { id: 100, char: "着", pinyin: "zhe", translation: "частица длительности" },
+            // 101-110
+            { id: 101, char: "看", pinyin: "kàn", translation: "смотреть" },
+            { id: 102, char: "会", pinyin: "huì", translation: "уметь" },
+            { id: 103, char: "自", pinyin: "zì", translation: "сам" },
+            { id: 104, char: "己", pinyin: "jǐ", translation: "себя" },
+            { id: 105, char: "画", pinyin: "huà", translation: "рисовать" },
+            { id: 106, char: "好", pinyin: "hǎo", translation: "хороший" },
+            { id: 107, char: "爱", pinyin: "ài", translation: "любить" },
+            { id: 108, char: "心", pinyin: "xīn", translation: "сердце" },
+            { id: 109, char: "也", pinyin: "yě", translation: "тоже, также" },
+            { id: 110, char: "可", pinyin: "kě", translation: "можно, мочь" },
+            // 111-120
+            { id: 111, char: "家", pinyin: "jiā", translation: "дом, семья" },
+            { id: 112, char: "爸", pinyin: "bà", translation: "папа" },
+            { id: 113, char: "妈", pinyin: "mā", translation: "мама" },
+            { id: 114, char: "这", pinyin: "zhè", translation: "этот" },
+            { id: 115, char: "爷", pinyin: "yé", translation: "дедушка" },
+            { id: 116, char: "奶", pinyin: "nǎi", translation: "бабушка" },
+            { id: 117, char: "们", pinyin: "men", translation: "суффикс мн.ч." },
+            { id: 118, char: "书", pinyin: "shū", translation: "книга" },
+            { id: 119, char: "串", pinyin: "chuàn", translation: "связка" },
+            { id: 120, char: "球", pinyin: "qiú", translation: "мяч" },
+            // 121-130
+            { id: 121, char: "圆", pinyin: "yuán", translation: "круглый" },
+            { id: 122, char: "形", pinyin: "xíng", translation: "форма" },
+            { id: 123, char: "长", pinyin: "cháng", translation: "длинный" },
+            { id: 124, char: "方", pinyin: "fāng", translation: "квадрат, сторона" },
+            { id: 125, char: "正", pinyin: "zhèng", translation: "правильный" },
+            { id: 126, char: "角", pinyin: "jiǎo", translation: "угол" },
+            { id: 127, char: "灯", pinyin: "dēng", translation: "лампа" },
+            { id: 128, char: "块", pinyin: "kuài", translation: "кусок" },
+            { id: 129, char: "冰", pinyin: "bīng", translation: "лёд" },
+            { id: 130, char: "那", pinyin: "nà", translation: "тот" },
+            // 131-140
+            { id: 131, char: "弓", pinyin: "gōng", translation: "лук (оружие)" },
+            { id: 132, char: "买", pinyin: "mǎi", translation: "покупать" },
+            { id: 133, char: "哪", pinyin: "nǎ", translation: "какой" },
+            { id: 134, char: "乐", pinyin: "lè", translation: "радость, музыка" },
+            { id: 135, char: "谢", pinyin: "xiè", translation: "благодарить" },
+            { id: 136, char: "想", pinyin: "xiǎng", translation: "думать, хотеть" },
+            { id: 137, char: "抱", pinyin: "bào", translation: "обнимать" },
+            { id: 138, char: "竹", pinyin: "zhú", translation: "бамбук" },
+            { id: 139, char: "要", pinyin: "yào", translation: "хотеть; нужно" },
+            { id: 140, char: "立", pinyin: "lì", translation: "стоять" },
+            // 141-150
+            { id: 141, char: "耳", pinyin: "ěr", translation: "ухо" },
+            { id: 142, char: "红", pinyin: "hóng", translation: "красный" },
+            { id: 143, char: "色", pinyin: "sè", translation: "цвет" },
+            { id: 144, char: "吃", pinyin: "chī", translation: "есть, кушать" },
+            { id: 145, char: "香", pinyin: "xiāng", translation: "ароматный" },
+            { id: 146, char: "穿", pinyin: "chuān", translation: "носить, надевать" },
+            { id: 147, char: "身", pinyin: "shēn", translation: "тело" },
+            { id: 148, char: "它", pinyin: "tā", translation: "оно" },
+            { id: 149, char: "发", pinyin: "fā", translation: "испускать, отправлять" },
+            { id: 150, char: "衣", pinyin: "yī", translation: "одежда" },
+            // 151-160
+            { id: 151, char: "他", pinyin: "tā", translation: "он" },
+            { id: 152, char: "她", pinyin: "tā", translation: "она" },
+            { id: 153, char: "毛", pinyin: "máo", translation: "шерсть, волосы" },
+            { id: 154, char: "朋", pinyin: "péng", translation: "друг" },
+            { id: 155, char: "友", pinyin: "yǒu", translation: "друг" },
+            { id: 156, char: "哥", pinyin: "gē", translation: "старший брат" },
+            { id: 157, char: "弟", pinyin: "dì", translation: "младший брат" },
+            { id: 158, char: "兄", pinyin: "xiōng", translation: "старший брат" },
+            { id: 159, char: "眉", pinyin: "méi", translation: "бровь" },
+            { id: 160, char: "鼻", pinyin: "bí", translation: "нос" },
+            // 161-170
+            { id: 161, char: "光", pinyin: "guāng", translation: "свет" },
+            { id: 162, char: "星", pinyin: "xīng", translation: "звезда" },
+            { id: 163, char: "阳", pinyin: "yáng", translation: "солнце" },
+            { id: 164, char: "亮", pinyin: "liàng", translation: "яркий" },
+            { id: 165, char: "今", pinyin: "jīn", translation: "сегодня" },
+            { id: 166, char: "明", pinyin: "míng", translation: "завтра; светлый" },
+            { id: 167, char: "走", pinyin: "zǒu", translation: "идти, ходить" },
+            { id: 168, char: "兴", pinyin: "xìng", translation: "интерес; радость" },
+            { id: 169, char: "空", pinyin: "kōng", translation: "пустой, небо" },
+            { id: 170, char: "两", pinyin: "liǎng", translation: "два (счётное)" },
+            // 171-180
+            { id: 171, char: "哭", pinyin: "kū", translation: "плакать" },
+            { id: 172, char: "牙", pinyin: "yá", translation: "зуб" },
+            { id: 173, char: "肚", pinyin: "dù", translation: "живот" },
+            { id: 174, char: "尾", pinyin: "wěi", translation: "хвост" },
+            { id: 175, char: "你", pinyin: "nǐ", translation: "ты" },
+            { id: 176, char: "脸", pinyin: "liǎn", translation: "лицо" },
+            { id: 177, char: "黑", pinyin: "hēi", translation: "чёрный" },
+            { id: 178, char: "半", pinyin: "bàn", translation: "половина" },
+            { id: 179, char: "呀", pinyin: "ya", translation: "восклицательная частица" },
+            { id: 180, char: "吗", pinyin: "ma", translation: "вопросительная частица" },
+            // 181-190
+            { id: 181, char: "七", pinyin: "qī", translation: "семь" },
+            { id: 182, char: "八", pinyin: "bā", translation: "восемь" },
+            { id: 183, char: "九", pinyin: "jiǔ", translation: "девять" },
+            { id: 184, char: "十", pinyin: "shí", translation: "десять" },
+            { id: 185, char: "又", pinyin: "yòu", translation: "снова, опять" },
+            { id: 186, char: "很", pinyin: "hěn", translation: "очень" },
+            { id: 187, char: "太", pinyin: "tài", translation: "слишком" },
+            { id: 188, char: "宝", pinyin: "bǎo", translation: "сокровище" },
+            { id: 189, char: "贝", pinyin: "bèi", translation: "раковина; деньги" },
+            { id: 190, char: "和", pinyin: "hé", translation: "и, с" },
+            // 191-200
+            { id: 191, char: "关", pinyin: "guān", translation: "закрывать" },
+            { id: 192, char: "园", pinyin: "yuán", translation: "сад, парк" },
+            { id: 193, char: "生", pinyin: "shēng", translation: "рождаться, жизнь" },
+            { id: 194, char: "公", pinyin: "gōng", translation: "публичный" },
+            { id: 195, char: "苗", pinyin: "miáo", translation: "росток" },
+            { id: 196, char: "叶", pinyin: "yè", translation: "лист" },
+            { id: 197, char: "林", pinyin: "lín", translation: "лес" },
+            { id: 198, char: "草", pinyin: "cǎo", translation: "трава" },
+            { id: 199, char: "先", pinyin: "xiān", translation: "сначала, прежде" },
+            { id: 200, char: "岛", pinyin: "dǎo", translation: "остров" },
+            // 201-210
+            { id: 201, char: "嘴", pinyin: "zuǐ", translation: "рот, губы" },
+            { id: 202, char: "眼", pinyin: "yǎn", translation: "глаз" },
+            { id: 203, char: "睛", pinyin: "jīng", translation: "глазное яблоко" },
+            { id: 204, char: "脚", pinyin: "jiǎo", translation: "нога, ступня" },
+            { id: 205, char: "腿", pinyin: "tuǐ", translation: "нога (бедро)" },
+            { id: 206, char: "翅", pinyin: "chì", translation: "крыло" },
+            { id: 207, char: "膀", pinyin: "bǎng", translation: "плечо" },
+            { id: 208, char: "羽", pinyin: "yǔ", translation: "перо" },
+            { id: 209, char: "体", pinyin: "tǐ", translation: "тело" },
+            { id: 210, char: "没", pinyin: "méi", translation: "не иметь" },
+            // 211-220
+            { id: 211, char: "认", pinyin: "rèn", translation: "узнавать" },
+            { id: 212, char: "识", pinyin: "shí", translation: "знать" },
+            { id: 213, char: "颜", pinyin: "yán", translation: "лицо; цвет" },
+            { id: 214, char: "黄", pinyin: "huáng", translation: "жёлтый" },
+            { id: 215, char: "蓝", pinyin: "lán", translation: "синий" },
+            { id: 216, char: "绿", pinyin: "lǜ", translation: "зелёный" },
+            { id: 217, char: "粉", pinyin: "fěn", translation: "розовый" },
+            { id: 218, char: "青", pinyin: "qīng", translation: "сине-зелёный" },
+            { id: 219, char: "紫", pinyin: "zǐ", translation: "фиолетовый" },
+            { id: 220, char: "彩", pinyin: "cǎi", translation: "цвет; разноцветный" },
+            // 221-230
+            { id: 221, char: "食", pinyin: "shí", translation: "еда" },
+            { id: 222, char: "物", pinyin: "wù", translation: "вещь, предмет" },
+            { id: 223, char: "尝", pinyin: "cháng", translation: "пробовать на вкус" },
+            { id: 224, char: "闻", pinyin: "wén", translation: "нюхать; слышать" },
+            { id: 225, char: "味", pinyin: "wèi", translation: "вкус, запах" },
+            { id: 226, char: "鲜", pinyin: "xiān", translation: "свежий" },
+            { id: 227, char: "苦", pinyin: "kǔ", translation: "горький" },
+            { id: 228, char: "甜", pinyin: "tián", translation: "сладкий" },
+            { id: 229, char: "什", pinyin: "shén", translation: "что" },
+            { id: 230, char: "么", pinyin: "me", translation: "суффикс" },
+            // 231-240
+            { id: 231, char: "起", pinyin: "qǐ", translation: "вставать" },
+            { id: 232, char: "运", pinyin: "yùn", translation: "движение; удача" },
+            { id: 233, char: "动", pinyin: "dòng", translation: "двигаться" },
+            { id: 234, char: "踢", pinyin: "tī", translation: "пинать" },
+            { id: 235, char: "足", pinyin: "zú", translation: "нога; достаточно" },
+            { id: 236, char: "赛", pinyin: "sài", translation: "соревнование" },
+            { id: 237, char: "快", pinyin: "kuài", translation: "быстрый" },
+            { id: 238, char: "慢", pinyin: "màn", translation: "медленный" },
+            { id: 239, char: "跑", pinyin: "pǎo", translation: "бегать" },
+            { id: 240, char: "步", pinyin: "bù", translation: "шаг" },
+            // 241-250
+            { id: 241, char: "唱", pinyin: "chàng", translation: "петь" },
+            { id: 242, char: "歌", pinyin: "gē", translation: "песня" },
+            { id: 243, char: "跳", pinyin: "tiào", translation: "прыгать" },
+            { id: 244, char: "舞", pinyin: "wǔ", translation: "танцевать" },
+            { id: 245, char: "吹", pinyin: "chuī", translation: "дуть" },
+            { id: 246, char: "号", pinyin: "hào", translation: "номер; труба" },
+            { id: 247, char: "讲", pinyin: "jiǎng", translation: "говорить" },
+            { id: 248, char: "故", pinyin: "gù", translation: "старый; причина" },
+            { id: 249, char: "事", pinyin: "shì", translation: "дело" },
+            { id: 250, char: "怎", pinyin: "zěn", translation: "как" },
+            // 251-260
+            { id: 251, char: "帮", pinyin: "bāng", translation: "помогать" },
+            { id: 252, char: "找", pinyin: "zhǎo", translation: "искать" },
+            { id: 253, char: "欢", pinyin: "huān", translation: "радость" },
+            { id: 254, char: "担", pinyin: "dān", translation: "нести" },
+            { id: 255, char: "闷", pinyin: "mèn", translation: "скучный, душный" },
+            { id: 256, char: "急", pinyin: "jí", translation: "срочный" },
+            { id: 257, char: "害", pinyin: "hài", translation: "вредить; бояться" },
+            { id: 258, char: "怕", pinyin: "pà", translation: "бояться" },
+            { id: 259, char: "惊", pinyin: "jīng", translation: "удивляться" },
+            { id: 260, char: "哈", pinyin: "hā", translation: "ха (смех)" },
+            // 261-270
+            { id: 261, char: "老", pinyin: "lǎo", translation: "старый" },
+            { id: 262, char: "师", pinyin: "shī", translation: "учитель" },
+            { id: 263, char: "同", pinyin: "tóng", translation: "вместе; тот же" },
+            { id: 264, char: "学", pinyin: "xué", translation: "учиться" },
+            { id: 265, char: "校", pinyin: "xiào", translation: "школа" },
+            { id: 266, char: "桌", pinyin: "zhuō", translation: "стол" },
+            { id: 267, char: "椅", pinyin: "yǐ", translation: "стул" },
+            { id: 268, char: "教", pinyin: "jiào", translation: "учить" },
+            { id: 269, char: "室", pinyin: "shì", translation: "комната" },
+            { id: 270, char: "课", pinyin: "kè", translation: "урок" },
+            // 271-280
+            { id: 271, char: "做", pinyin: "zuò", translation: "делать" },
+            { id: 272, char: "给", pinyin: "gěi", translation: "давать" },
+            { id: 273, char: "操", pinyin: "cāo", translation: "упражнение" },
+            { id: 274, char: "伸", pinyin: "shēn", translation: "вытягивать" },
+            { id: 275, char: "拉", pinyin: "lā", translation: "тянуть" },
+            { id: 276, char: "举", pinyin: "jǔ", translation: "поднимать" },
+            { id: 277, char: "拍", pinyin: "pāi", translation: "хлопать; снимать" },
+            { id: 278, char: "抓", pinyin: "zhuā", translation: "хватать" },
+            { id: 279, char: "拥", pinyin: "yōng", translation: "обнимать" },
+            { id: 280, char: "扔", pinyin: "rēng", translation: "бросать" },
+            // 281-290
+            { id: 281, char: "寒", pinyin: "hán", translation: "холодный" },
+            { id: 282, char: "冷", pinyin: "lěng", translation: "холодный" },
+            { id: 283, char: "温", pinyin: "wēn", translation: "тёплый" },
+            { id: 284, char: "暖", pinyin: "nuǎn", translation: "тёплый" },
+            { id: 285, char: "热", pinyin: "rè", translation: "горячий" },
+            { id: 286, char: "凉", pinyin: "liáng", translation: "прохладный" },
+            { id: 287, char: "湿", pinyin: "shī", translation: "влажный" },
+            { id: 288, char: "雾", pinyin: "wù", translation: "туман" },
+            { id: 289, char: "净", pinyin: "jìng", translation: "чистый" },
+            { id: 290, char: "到", pinyin: "dào", translation: "достигать" },
+            // 291-300
+            { id: 291, char: "都", pinyin: "dōu", translation: "все, всё" },
+            { id: 292, char: "办", pinyin: "bàn", translation: "делать" },
+            { id: 293, char: "渴", pinyin: "kě", translation: "жаждать" },
+            { id: 294, char: "喝", pinyin: "hē", translation: "пить" },
+            { id: 295, char: "饿", pinyin: "è", translation: "голодный" },
+            { id: 296, char: "饭", pinyin: "fàn", translation: "еда, рис" },
+            { id: 297, char: "睡", pinyin: "shuì", translation: "спать" },
+            { id: 298, char: "觉", pinyin: "jiào", translation: "сон" },
+            { id: 299, char: "累", pinyin: "lèi", translation: "усталый" },
+            { id: 300, char: "醒", pinyin: "xǐng", translation: "просыпаться" },
+            // 301-310
+            { id: 301, char: "房", pinyin: "fáng", translation: "дом, комната" },
+            { id: 302, char: "间", pinyin: "jiān", translation: "промежуток; комната" },
+            { id: 303, char: "帘", pinyin: "lián", translation: "занавес" },
+            { id: 304, char: "窗", pinyin: "chuāng", translation: "окно" },
+            { id: 305, char: "户", pinyin: "hù", translation: "дверь; двор" },
+            { id: 306, char: "台", pinyin: "tái", translation: "платформа; стол" },
+            { id: 307, char: "视", pinyin: "shì", translation: "смотреть" },
+            { id: 308, char: "床", pinyin: "chuáng", translation: "кровать" },
+            { id: 309, char: "被", pinyin: "bèi", translation: "одеяло" },
+            { id: 310, char: "处", pinyin: "chù", translation: "место" },
+            // 311-320
+            { id: 311, char: "让", pinyin: "ràng", translation: "позволять" },
+            { id: 312, char: "对", pinyin: "duì", translation: "правильный; пара" },
+            { id: 313, char: "姐", pinyin: "jiě", translation: "старшая сестра" },
+            { id: 314, char: "妹", pinyin: "mèi", translation: "младшая сестра" },
+            { id: 315, char: "阿", pinyin: "ā", translation: "префикс имени" },
+            { id: 316, char: "姨", pinyin: "yí", translation: "тётя" },
+            { id: 317, char: "叔", pinyin: "shū", translation: "дядя" },
+            { id: 318, char: "伯", pinyin: "bó", translation: "старший дядя" },
+            { id: 319, char: "姑", pinyin: "gū", translation: "тётя (по отцу)" },
+            { id: 320, char: "亲", pinyin: "qīn", translation: "родной, близкий" },
+            // 321-330
+            { id: 321, char: "餐", pinyin: "cān", translation: "еда, приём пищи" },
+            { id: 322, char: "盆", pinyin: "pén", translation: "таз, миска" },
+            { id: 323, char: "碗", pinyin: "wǎn", translation: "чаша, пиала" },
+            { id: 324, char: "筷", pinyin: "kuài", translation: "палочки для еды" },
+            { id: 325, char: "盖", pinyin: "gài", translation: "крышка" },
+            { id: 326, char: "袋", pinyin: "dài", translation: "мешок" },
+            { id: 327, char: "巾", pinyin: "jīn", translation: "полотенце" },
+            { id: 328, char: "杯", pinyin: "bēi", translation: "стакан, чашка" },
+            { id: 329, char: "成", pinyin: "chéng", translation: "становиться" },
+            { id: 330, char: "用", pinyin: "yòng", translation: "использовать" },
+            // 331-340
+            { id: 331, char: "像", pinyin: "xiàng", translation: "похожий" },
+            { id: 332, char: "原", pinyin: "yuán", translation: "равнина; изначальный" },
+            { id: 333, char: "菜", pinyin: "cài", translation: "овощи, блюдо" },
+            { id: 334, char: "萝", pinyin: "luó", translation: "редька" },
+            { id: 335, char: "卜", pinyin: "bo", translation: "редька (в сочет.)" },
+            { id: 336, char: "豆", pinyin: "dòu", translation: "боб" },
+            { id: 337, char: "苹", pinyin: "píng", translation: "яблоко" },
+            { id: 338, char: "桃", pinyin: "táo", translation: "персик" },
+            { id: 339, char: "杏", pinyin: "xìng", translation: "абрикос" },
+            { id: 340, char: "笋", pinyin: "sǔn", translation: "побег бамбука" },
+            // 341-350
+            { id: 341, char: "扫", pinyin: "sǎo", translation: "подметать" },
+            { id: 342, char: "地", pinyin: "dì", translation: "земля, место" },
+            { id: 343, char: "拖", pinyin: "tuō", translation: "тянуть; мыть пол" },
+            { id: 344, char: "洒", pinyin: "sǎ", translation: "разбрызгивать" },
+            { id: 345, char: "洗", pinyin: "xǐ", translation: "мыть" },
+            { id: 346, char: "服", pinyin: "fú", translation: "одежда" },
+            { id: 347, char: "晒", pinyin: "shài", translation: "сушить на солнце" },
+            { id: 348, char: "收", pinyin: "shōu", translation: "собирать" },
+            { id: 349, char: "全", pinyin: "quán", translation: "весь, целый" },
+            { id: 350, char: "呢", pinyin: "ne", translation: "вопросительная частица" },
+            // 351-360
+            { id: 351, char: "还", pinyin: "hái", translation: "ещё" },
+            { id: 352, char: "谁", pinyin: "shuí", translation: "кто" },
+            { id: 353, char: "商", pinyin: "shāng", translation: "торговля" },
+            { id: 354, char: "场", pinyin: "chǎng", translation: "площадка" },
+            { id: 355, char: "楼", pinyin: "lóu", translation: "здание, этаж" },
+            { id: 356, char: "街", pinyin: "jiē", translation: "улица" },
+            { id: 357, char: "理", pinyin: "lǐ", translation: "управлять; причина" },
+            { id: 358, char: "店", pinyin: "diàn", translation: "магазин" },
+            { id: 359, char: "鞋", pinyin: "xié", translation: "обувь" },
+            { id: 360, char: "市", pinyin: "shì", translation: "город, рынок" },
+            // 361-370
+            { id: 361, char: "病", pinyin: "bìng", translation: "болезнь" },
+            { id: 362, char: "医", pinyin: "yī", translation: "медицина" },
+            { id: 363, char: "院", pinyin: "yuàn", translation: "учреждение" },
+            { id: 364, char: "护", pinyin: "hù", translation: "защищать" },
+            { id: 365, char: "士", pinyin: "shì", translation: "воин; специалист" },
+            { id: 366, char: "伤", pinyin: "shāng", translation: "рана" },
+            { id: 367, char: "纱", pinyin: "shā", translation: "марля; пряжа" },
+            { id: 368, char: "布", pinyin: "bù", translation: "ткань" },
+            { id: 369, char: "针", pinyin: "zhēn", translation: "игла" },
+            { id: 370, char: "住", pinyin: "zhù", translation: "жить" },
+            // 371-380
+            { id: 371, char: "养", pinyin: "yǎng", translation: "растить, кормить" },
+            { id: 372, char: "放", pinyin: "fàng", translation: "ставить, класть" },
+            { id: 373, char: "鸡", pinyin: "jī", translation: "курица" },
+            { id: 374, char: "鸭", pinyin: "yā", translation: "утка" },
+            { id: 375, char: "农", pinyin: "nóng", translation: "фермер" },
+            { id: 376, char: "夫", pinyin: "fū", translation: "муж" },
+            { id: 377, char: "猫", pinyin: "māo", translation: "кошка" },
+            { id: 378, char: "狗", pinyin: "gǒu", translation: "собака" },
+            { id: 379, char: "鼠", pinyin: "shǔ", translation: "мышь" },
+            { id: 380, char: "群", pinyin: "qún", translation: "группа, стая" },
+            // 381-390
+            { id: 381, char: "汽", pinyin: "qì", translation: "пар" },
+            { id: 382, char: "行", pinyin: "xíng", translation: "идти; действовать" },
+            { id: 383, char: "交", pinyin: "jiāo", translation: "пересекать; сдавать" },
+            { id: 384, char: "装", pinyin: "zhuāng", translation: "упаковывать; одежда" },
+            { id: 385, char: "甲", pinyin: "jiǎ", translation: "панцирь; первый" },
+            { id: 386, char: "机", pinyin: "jī", translation: "машина, механизм" },
+            { id: 387, char: "宇", pinyin: "yǔ", translation: "вселенная" },
+            { id: 388, char: "宙", pinyin: "zhòu", translation: "вселенная" },
+            { id: 389, char: "船", pinyin: "chuán", translation: "корабль" },
+            { id: 390, char: "化", pinyin: "huà", translation: "превращать" },
+            // 391-400
+            { id: 391, char: "当", pinyin: "dāng", translation: "быть, работать" },
+            { id: 392, char: "该", pinyin: "gāi", translation: "следует" },
+            { id: 393, char: "科", pinyin: "kē", translation: "наука; отдел" },
+            { id: 394, char: "程", pinyin: "chéng", translation: "маршрут; процесс" },
+            { id: 395, char: "航", pinyin: "háng", translation: "плавание, полёт" },
+            { id: 396, char: "员", pinyin: "yuán", translation: "сотрудник" },
+            { id: 397, char: "司", pinyin: "sī", translation: "управлять" },
+            { id: 398, char: "蹈", pinyin: "dǎo", translation: "танцевать" },
+            { id: 399, char: "军", pinyin: "jūn", translation: "армия" },
+            { id: 400, char: "银", pinyin: "yín", translation: "серебро" },
+            // 401-410
+            { id: 401, char: "客", pinyin: "kè", translation: "гость" },
+            { id: 402, char: "壳", pinyin: "ké", translation: "скорлупа" },
+            { id: 403, char: "救", pinyin: "jiù", translation: "спасать" },
+            { id: 404, char: "板", pinyin: "bǎn", translation: "доска" },
+            { id: 405, char: "加", pinyin: "jiā", translation: "добавлять" },
+            { id: 406, char: "油", pinyin: "yóu", translation: "масло" },
+            { id: 407, char: "修", pinyin: "xiū", translation: "ремонтировать" },
+            { id: 408, char: "轮", pinyin: "lún", translation: "колесо" },
+            { id: 409, char: "始", pinyin: "shǐ", translation: "начинать" },
+            { id: 410, char: "离", pinyin: "lí", translation: "покидать" },
+            // 411-420
+            { id: 411, char: "遇", pinyin: "yù", translation: "встречать" },
+            { id: 412, char: "别", pinyin: "bié", translation: "прощаться; другой" },
+            { id: 413, char: "海", pinyin: "hǎi", translation: "море" },
+            { id: 414, char: "洋", pinyin: "yáng", translation: "океан" },
+            { id: 415, char: "流", pinyin: "liú", translation: "течь" },
+            { id: 416, char: "浪", pinyin: "làng", translation: "волна" },
+            { id: 417, char: "波", pinyin: "bō", translation: "волна" },
+            { id: 418, char: "潮", pinyin: "cháo", translation: "прилив" },
+            { id: 419, char: "雷", pinyin: "léi", translation: "гром" },
+            { id: 420, char: "乌", pinyin: "wū", translation: "ворона; чёрный" },
+            // 421-430
+            { id: 421, char: "底", pinyin: "dǐ", translation: "дно" },
+            { id: 422, char: "虾", pinyin: "xiā", translation: "креветка" },
+            { id: 423, char: "丑", pinyin: "chǒu", translation: "уродливый" },
+            { id: 424, char: "斑", pinyin: "bān", translation: "пятно" },
+            { id: 425, char: "带", pinyin: "dài", translation: "нести; лента" },
+            { id: 426, char: "宫", pinyin: "gōng", translation: "дворец" },
+            { id: 427, char: "美", pinyin: "měi", translation: "красивый" },
+            { id: 428, char: "柱", pinyin: "zhù", translation: "колонна" },
+            { id: 429, char: "矿", pinyin: "kuàng", translation: "руда, шахта" },
+            { id: 430, char: "完", pinyin: "wán", translation: "заканчивать" },
+            // 431-440
+            { id: 431, char: "挖", pinyin: "wā", translation: "копать" },
+            { id: 432, char: "就", pinyin: "jiù", translation: "сразу; именно" },
+            { id: 433, char: "岩", pinyin: "yán", translation: "скала" },
+            { id: 434, char: "沙", pinyin: "shā", translation: "песок" },
+            { id: 435, char: "滩", pinyin: "tān", translation: "отмель" },
+            { id: 436, char: "鸥", pinyin: "ōu", translation: "чайка" },
+            { id: 437, char: "瓶", pinyin: "píng", translation: "бутылка" },
+            { id: 438, char: "珠", pinyin: "zhū", translation: "жемчужина" },
+            { id: 439, char: "金", pinyin: "jīn", translation: "золото" },
+            { id: 440, char: "骨", pinyin: "gǔ", translation: "кость" },
+            // 441-450
+            { id: 441, char: "帆", pinyin: "fān", translation: "парус" },
+            { id: 442, char: "游", pinyin: "yóu", translation: "плавать; гулять" },
+            { id: 443, char: "冲", pinyin: "chōng", translation: "устремляться" },
+            { id: 444, char: "划", pinyin: "huá", translation: "грести" },
+            { id: 445, char: "钓", pinyin: "diào", translation: "удить рыбу" },
+            { id: 446, char: "钩", pinyin: "gōu", translation: "крюк" },
+            { id: 447, char: "篮", pinyin: "lán", translation: "корзина" },
+            { id: 448, char: "网", pinyin: "wǎng", translation: "сеть" },
+            { id: 449, char: "最", pinyin: "zuì", translation: "самый" },
+            { id: 450, char: "得", pinyin: "dé", translation: "получать" },
+            // 451-460
+            { id: 451, char: "梦", pinyin: "mèng", translation: "сон, мечта" },
+            { id: 452, char: "森", pinyin: "sēn", translation: "лес" },
+            { id: 453, char: "植", pinyin: "zhí", translation: "сажать" },
+            { id: 454, char: "树", pinyin: "shù", translation: "дерево" },
+            { id: 455, char: "泥", pinyin: "ní", translation: "грязь" },
+            { id: 456, char: "春", pinyin: "chūn", translation: "весна" },
+            { id: 457, char: "夏", pinyin: "xià", translation: "лето" },
+            { id: 458, char: "秋", pinyin: "qiū", translation: "осень" },
+            { id: 459, char: "冬", pinyin: "dōng", translation: "зима" },
+            { id: 460, char: "季", pinyin: "jì", translation: "сезон" },
+            // 461-470
+            { id: 461, char: "熊", pinyin: "xióng", translation: "медведь" },
+            { id: 462, char: "猴", pinyin: "hóu", translation: "обезьяна" },
+            { id: 463, char: "鹿", pinyin: "lù", translation: "олень" },
+            { id: 464, char: "虎", pinyin: "hǔ", translation: "тигр" },
+            { id: 465, char: "狮", pinyin: "shī", translation: "лев" },
+            { id: 466, char: "狐", pinyin: "hú", translation: "лиса" },
+            { id: 467, char: "狸", pinyin: "lí", translation: "лиса (в сочет.)" },
+            { id: 468, char: "狼", pinyin: "láng", translation: "волк" },
+            { id: 469, char: "现", pinyin: "xiàn", translation: "появляться" },
+            { id: 470, char: "总", pinyin: "zǒng", translation: "всегда; общий" },
+            // 471-480
+            { id: 471, char: "跟", pinyin: "gēn", translation: "следовать; с" },
+            { id: 472, char: "柳", pinyin: "liǔ", translation: "ива" },
+            { id: 473, char: "芽", pinyin: "yá", translation: "росток" },
+            { id: 474, char: "蚯", pinyin: "qiū", translation: "дождевой червь" },
+            { id: 475, char: "蚓", pinyin: "yǐn", translation: "дождевой червь" },
+            { id: 476, char: "蝴", pinyin: "hú", translation: "бабочка" },
+            { id: 477, char: "蝶", pinyin: "dié", translation: "бабочка" },
+            { id: 478, char: "燕", pinyin: "yàn", translation: "ласточка" },
+            { id: 479, char: "蜜", pinyin: "mì", translation: "мёд" },
+            { id: 480, char: "蜂", pinyin: "fēng", translation: "пчела" },
+            // 481-490
+            { id: 481, char: "民", pinyin: "mín", translation: "народ" },
+            { id: 482, char: "种", pinyin: "zhǒng", translation: "семя; вид" },
+            { id: 483, char: "翻", pinyin: "fān", translation: "переворачивать" },
+            { id: 484, char: "浇", pinyin: "jiāo", translation: "поливать" },
+            { id: 485, char: "肥", pinyin: "féi", translation: "удобрение; жирный" },
+            { id: 486, char: "施", pinyin: "shī", translation: "применять" },
+            { id: 487, char: "除", pinyin: "chú", translation: "удалять" },
+            { id: 488, char: "杀", pinyin: "shā", translation: "убивать" },
+            { id: 489, char: "如", pinyin: "rú", translation: "как, если" },
+            { id: 490, char: "再", pinyin: "zài", translation: "снова" },
+            // 491-500
+            { id: 491, char: "荷", pinyin: "hé", translation: "лотос" },
+            { id: 492, char: "蚪", pinyin: "dǒu", translation: "головастик" },
+            { id: 493, char: "蛙", pinyin: "wā", translation: "лягушка" },
+            { id: 494, char: "露", pinyin: "lù", translation: "роса" },
+            { id: 495, char: "蜻", pinyin: "qīng", translation: "стрекоза" },
+            { id: 496, char: "蜓", pinyin: "tíng", translation: "стрекоза" },
+            { id: 497, char: "蝉", pinyin: "chán", translation: "цикада" },
+            { id: 498, char: "声", pinyin: "shēng", translation: "звук, голос" },
+            { id: 499, char: "音", pinyin: "yīn", translation: "звук" },
+            { id: 500, char: "晨", pinyin: "chén", translation: "утро" }
+        ];
+
+        // ----------------------------------------------------------------------
+        // ОЗВУЧКА (Web Speech API)
+        // ----------------------------------------------------------------------
+        let soundEnabled = true;
+        let chineseVoice = null;
+
+        // Ищем китайский голос среди доступных
+        function pickChineseVoice() {
+            const voices = speechSynthesis.getVoices();
+            // Ищем zh-CN или zh_CN
+            chineseVoice = voices.find(v => v.lang === 'zh-CN' || v.lang === 'zh_CN')
+                        || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('zh'))
+                        || null;
+        }
+
+        // Голоса могут загружаться асинхронно
+        if ('speechSynthesis' in window) {
+            speechSynthesis.onvoiceschanged = pickChineseVoice;
+            pickChineseVoice();
+        }
+
+        function speak(text) {
+            if (!soundEnabled) return;
+            if (!('speechSynthesis' in window)) {
+                console.warn('Web Speech API не поддерживается этим браузером');
+                return;
+            }
+            // Отменяем предыдущее воспроизведение, чтобы не было очереди
+            speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'zh-CN';
+            utter.rate = 0.9;   // чуть медленнее для учебных целей
+            utter.pitch = 1;
+            if (chineseVoice) utter.voice = chineseVoice;
+            speechSynthesis.speak(utter);
+        }
+
+        // ----------------------------------------------------------------------
+        // ГЕНЕРАЦИЯ ТАБЛИЦЫ
+        // ----------------------------------------------------------------------
+        const gridContainer = document.getElementById('grid');
+        const writers = [];
+
+        function buildTable() {
+            const fragment = document.createDocumentFragment();
+
+            characters.forEach((item) => {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.id = item.id;
+
+                // Номер
+                const idEl = document.createElement('div');
+                idEl.className = 'cell-id';
+                idEl.textContent = item.id;
+                cell.appendChild(idEl);
+
+                // Блок анимации
+                const hanziBox = document.createElement('div');
+                hanziBox.className = 'hanzi-box';
+                cell.appendChild(hanziBox);
+
+                // Пиньинь
+                const pyEl = document.createElement('div');
+                pyEl.className = 'pinyin';
+                pyEl.textContent = item.pinyin;
+                cell.appendChild(pyEl);
+
+                // Перевод
+                const transEl = document.createElement('div');
+                transEl.className = 'translation';
+                transEl.textContent = item.translation;
+                cell.appendChild(transEl);
+
+                fragment.appendChild(cell);
+
+                // Hanzi Writer
+                const writer = HanziWriter.create(hanziBox, item.char, {
+                    width: 70,
+                    height: 70,
+                    padding: 2,
+                    showOutline: true,
+                    strokeAnimationSpeed: 1.5,
+                    strokeColor: '#2c3e50',
+                    outlineColor: '#e0e0e0',
+                    radicalColor: '#e74c3c',
+                    delayBetweenStrokes: 150
+                });
+                writers.push(writer);
+
+                // Клик: анимация + звук
+                hanziBox.addEventListener('click', () => {
+                    writer.animateCharacter();
+                    speak(item.char);
+
+                    // Подсветка ячейки на время озвучки
+                    cell.classList.add('speaking');
+                    setTimeout(() => cell.classList.remove('speaking'), 900);
+                });
+            });
+
+            gridContainer.appendChild(fragment);
+        }
+
+        // ----------------------------------------------------------------------
+        // УПРАВЛЕНИЕ
+        // ----------------------------------------------------------------------
+        document.getElementById('play-all').addEventListener('click', () => {
+            writers.forEach((writer, index) => {
+                setTimeout(() => {
+                    writer.animateCharacter();
+                }, index * 250);
+            });
+        });
+
+        document.getElementById('stop-all').addEventListener('click', () => {
+            speechSynthesis.cancel();
+            writers.forEach(writer => {
+                writer.cancelQuiz();
+                writer.animateCharacter({ strokeAnimationSpeed: 0 });
+            });
+            document.querySelectorAll('.cell.speaking').forEach(c => c.classList.remove('speaking'));
+        });
+
+        // Переключатель звука
+        const soundBtn = document.getElementById('toggle-sound');
+        soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundBtn.textContent = '🔊 Звук: ВКЛ';
+                soundBtn.classList.remove('off');
+            } else {
+                soundBtn.textContent = '🔇 Звук: ВЫКЛ';
+                soundBtn.classList.add('off');
+                speechSynthesis.cancel();
+            }
+        });
+
+        // Запуск
+        buildTable();
+    </script>
+</body>
+</html>
